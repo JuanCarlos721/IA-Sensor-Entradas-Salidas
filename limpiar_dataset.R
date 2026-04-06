@@ -1,55 +1,31 @@
-# ============================================================
-#  Limpieza de Dataset — Contador de Personas
-#  Juan Carlos Perez Hernandez
-#  UABC — Análisis de Tecnologías Emergentes
-#
-#  Problema: los brazos al caminar activan los sensores
-#  generando registros duplicados consecutivos.
-#  Solución: si dos etiquetas iguales aparecen seguidas
-#  dentro de una ventana de tiempo, se elimina la segunda.
-# ============================================================
-
 library(dplyr)
 
-# --- CONFIGURACIÓN ---
-ARCHIVO_ENTRADA <- "dataset.csv"   # tu archivo CSV del monitor serial
-ARCHIVO_SALIDA  <- "dataset_limpio.csv"
-VENTANA_MS      <- 3000            # si dos eventos iguales ocurren en menos
-                                   # de 3 segundos, el segundo es falso
+# Leer el archivo como texto puro para manejar las comillas del monitor serial
+lineas <- readLines("C:/Users/Juan Carlos/Downloads/UNI/Analisis tecnoligias emergentes/Proyecto/data/dataset.csv")
 
-# --- CARGAR DATOS ---
-datos <- read.csv(ARCHIVO_ENTRADA, stringsAsFactors = FALSE)
+# Quitar comillas dobles y convertir a data frame
+datos <- read.csv(
+  text = gsub('"', '', paste(lineas, collapse = "\n")),
+  header = FALSE,
+  stringsAsFactors = FALSE
+)
 
-cat("Registros originales:", nrow(datos), "\n")
+colnames(datos) <- c("id", "dist_a", "dist_b", "tiempo_a", "tiempo_b", "delta_ms", "primero", "etiqueta")
 
-# --- LIMPIEZA ---
-# Ordenar por tiempo_a por si acaso quedaron desordenados
-datos <- datos %>% arrange(tiempo_a)
-
-# Detectar y eliminar duplicados consecutivos
+# Eliminar eventos consecutivos del mismo tipo.
+# lag() compara cada fila con la anterior.
+# Si dos entradas o dos salidas aparecen seguidas, se queda solo la primera.
 limpios <- datos %>%
-  mutate(
-    # Etiqueta del registro anterior
-    etiqueta_anterior = lag(etiqueta),
-    # Tiempo del registro anterior
-    tiempo_anterior   = lag(tiempo_a),
-    # Diferencia de tiempo con el registro anterior
-    diff_tiempo       = tiempo_a - tiempo_anterior
-  ) %>%
-  filter(
-    # Eliminar si: misma etiqueta que el anterior Y ocurrió muy rápido
-    !(etiqueta == etiqueta_anterior & diff_tiempo < VENTANA_MS)
-  ) %>%
-  select(-etiqueta_anterior, -tiempo_anterior, -diff_tiempo)
+  arrange(tiempo_a) %>%
+  filter(etiqueta != lag(etiqueta, default = ""))
 
-cat("Registros después de limpieza:", nrow(limpios), "\n")
-cat("Registros eliminados:", nrow(datos) - nrow(limpios), "\n\n")
+# Reindexar los IDs
+limpios$id <- seq_len(nrow(limpios))
 
-# --- BALANCE DE CLASES ---
 conteo <- table(limpios$etiqueta)
+cat("Total registros:", nrow(limpios), "\n")
 cat("Entradas:", conteo["entrada"], "\n")
-cat("Salidas: ", conteo["salida"],  "\n\n")
+cat("Salidas: ", conteo["salida"],  "\n")
 
-# --- GUARDAR ---
-write.csv(limpios, ARCHIVO_SALIDA, row.names = FALSE)
-cat("Dataset limpio guardado como:", ARCHIVO_SALIDA, "\n")
+write.csv(limpios, "C:/Users/Juan Carlos/Downloads/UNI/Analisis tecnoligias emergentes/Proyecto/data/dataset_limpio.csv", row.names = FALSE)
+cat("Guardado como dataset_limpio.csv\n")
