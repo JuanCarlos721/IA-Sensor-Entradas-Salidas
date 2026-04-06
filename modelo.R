@@ -4,7 +4,7 @@
 #  UABC — Análisis de Tecnologías Emergentes
 # ============================================================
 
-#install.packages("caret")
+
 
 library(e1071)
 library(caret)
